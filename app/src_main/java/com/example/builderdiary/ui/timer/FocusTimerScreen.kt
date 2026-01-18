@@ -3,7 +3,6 @@ package com.example.builderdiary.ui.timer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,8 +26,6 @@ import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -42,25 +39,22 @@ import com.example.builderdiary.TextGrey
 import com.example.builderdiary.TextWhite
 import com.example.builderdiary.data.local.entity.ProjectEntity
 import com.example.builderdiary.ui.theme.neonGlow
-import kotlin.math.abs
 
 @Composable
 fun FocusTimerScreen(
     viewModel: FocusTimerViewModel = hiltViewModel(),
     onDashboardClicked: () -> Unit,
+    // FIXED: Updated signature to accept projectId
     navigateToSessionReceipt: (Int, Long, Long) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val density = LocalDensity.current
-    val swipeThresholdPx = with(density) { 50.dp.toPx() }
-    var verticalDragOffset by remember { mutableStateOf(0f) }
-
 
     // Handle Navigation Events
     LaunchedEffect(key1 = true) {
         viewModel.navigationEvent.collect { event ->
             when (event) {
                 is TimerNavigationEvent.SessionComplete -> {
+                    // FIXED: Passing event.projectId
                     navigateToSessionReceipt(event.xp, event.duration, event.projectId)
                 }
             }
@@ -72,19 +66,7 @@ fun FocusTimerScreen(
             .fillMaxSize()
             .background(DarkBackground)
             .padding(24.dp)
-            .systemBarsPadding()
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { verticalDragOffset = 0f },
-                    onVerticalDrag = { _, dragAmount ->
-                        verticalDragOffset += dragAmount
-                        // Trigger navigation on a clear upward swipe
-                        if (verticalDragOffset < -swipeThresholdPx) {
-                            onDashboardClicked()
-                        }
-                    }
-                )
-            },
+            .systemBarsPadding(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         TopHeaderBar(

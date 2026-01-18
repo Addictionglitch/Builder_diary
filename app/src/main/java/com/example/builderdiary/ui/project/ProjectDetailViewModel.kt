@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -19,18 +20,19 @@ class ProjectDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    private val projectId: Long = checkNotNull(savedStateHandle["projectId"])
+    private val projectIdString: String? = savedStateHandle["projectId"]
+    // Handle case where projectId might be passed as "1" or just 1
+    private val projectId: Long = projectIdString?.toLongOrNull() ?: 1L
 
-    // Combine the project and sessions flows into one UI State
     val uiState: StateFlow<ProjectDetailUiState> = combine(
         repository.getProjectById(projectId),
         repository.getSessionsForProject(projectId)
     ) { project, sessions ->
         ProjectDetailUiState(
             project = project,
-            sessions = sessions,
-            // Simple helper to format total time (You can move this logic later)
-            totalTimeFormatted = formatSecondsToHours(project?.totalFocusSeconds ?: 0)
+            // Sort by newest first
+            sessions = sessions.sortedByDescending { it.startTime },
+            totalTimeFormatted = formatSecondsToTimer(project?.totalFocusSeconds ?: 0)
         )
     }.stateIn(
         scope = viewModelScope,
@@ -38,17 +40,17 @@ class ProjectDetailViewModel @Inject constructor(
         initialValue = ProjectDetailUiState(isLoading = true)
     )
 
-    private fun formatSecondsToHours(seconds: Long): String {
-        val hours = seconds / 3600
-        val minutes = (seconds % 3600) / 60
-        return "${hours}h ${minutes}m"
+    private fun formatSecondsToTimer(totalSeconds: Long): String {
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return String.format(Locale.getDefault(), "%02d:%02d:%02d", hours, minutes, seconds)
     }
 }
 
-// THE FIXED DATA CLASS
 data class ProjectDetailUiState(
     val isLoading: Boolean = false,
-    val project: ProjectEntity? = null,        // Now uses the real Entity
-    val sessions: List<SessionEntity> = emptyList(), // Now uses the real Entity
-    val totalTimeFormatted: String = "0h 0m"
+    val project: ProjectEntity? = null,
+    val sessions: List<SessionEntity> = emptyList(),
+    val totalTimeFormatted: String = "00:00:00"
 )

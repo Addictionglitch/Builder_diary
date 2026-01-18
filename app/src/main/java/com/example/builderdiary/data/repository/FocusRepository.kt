@@ -25,6 +25,23 @@ class FocusRepository @Inject constructor(
         }
     }
 
+    // --- THIS WAS MISSING ---
+    suspend fun insertProject(name: String, archetype: Archetype, color: Long) {
+        val colorHex = String.format("#%06X", (0xFFFFFF and color.toInt()))
+        projectDao.insertProject(
+            ProjectEntity(
+                name = name,
+                archetype = archetype,
+                colorHex = colorHex
+            )
+        )
+    }
+
+    // Insert a completed session
+    suspend fun insertSession(session: SessionEntity) {
+        sessionDao.insertSession(session)
+    }
+
     fun getAllProjects(): Flow<List<ProjectEntity>> = projectDao.getAllProjects()
 
     fun getProjectById(id: Long): Flow<ProjectEntity> = projectDao.getProjectById(id)

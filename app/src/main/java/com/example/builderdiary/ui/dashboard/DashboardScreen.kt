@@ -1,169 +1,240 @@
 package com.example.builderdiary.ui.dashboard
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind // <--- FIXED: Added missing import
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.builderdiary.AccentYellow
-import com.example.builderdiary.GlassBackgroundBrush
 import com.example.builderdiary.TextGrey
 import com.example.builderdiary.TextWhite
 import com.example.builderdiary.data.local.entity.ProjectEntity
-import androidx.hilt.navigation.compose.hiltViewModel
 
 @Composable
 fun DashboardScreen(
+    viewModel: DashboardViewModel = hiltViewModel(),
     onProjectClick: (Long) -> Unit,
     onAddProjectClick: () -> Unit,
-    viewModel: DashboardViewModel = hiltViewModel()
+    onBack: () -> Unit // Swipe down callback
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    if (uiState.isLoading) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = AccentYellow)
+    // --- SWIPE DOWN LOGIC ---
+    val density = LocalDensity.current
+    val minSwipeDistance = with(density) { 100.dp.toPx() }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                // Accumulate drag when the user pulls down and list is at the top
+                if (source == NestedScrollSource.Drag && available.y > 0) {
+                    dragOffset += available.y
+                    return available
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (dragOffset > minSwipeDistance) {
+                    onBack()
+                }
+                dragOffset = 0f
+                return super.onPostFling(consumed, available)
+            }
         }
-    } else {
+    }
+
+    // --- UI ---
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF000000)) // Strict Black Background
+            .nestedScroll(nestedScrollConnection)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(24.dp)
         ) {
-            Header(uiState.totalFocusHours)
+            // Header
             Spacer(modifier = Modifier.height(24.dp))
-            ProjectGrid(
-                projects = uiState.projects,
-                onProjectClick = onProjectClick,
-                onAddProjectClick = onAddProjectClick
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .width(40.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.DarkGray)
             )
-        }
-    }
-}
+            Spacer(modifier = Modifier.height(32.dp))
 
-@Composable
-fun Header(totalFocusHours: String) {
-    Column {
-        Text(
-            text = "TOTAL FOCUS TIME",
-            fontSize = 14.sp,
-            color = TextGrey,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = totalFocusHours,
-            fontSize = 48.sp,
-            color = TextWhite,
-            fontWeight = FontWeight.Bold
-        )
-        Text(
-            text = "LEVEL 12 BUILDER",
-            fontSize = 12.sp,
-            color = AccentYellow,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
+            Text(
+                text = "TOTAL FOCUS TIME",
+                color = AccentYellow,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace,
+                letterSpacing = 2.sp
+            )
 
-@Composable
-fun ProjectGrid(
-    projects: List<ProjectEntity>,
-    onProjectClick: (Long) -> Unit,
-    onAddProjectClick: () -> Unit
-) {
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            AddNewProjectCard(onClick = onAddProjectClick)
+            Text(
+                text = uiState.totalFocusHours,
+                color = TextWhite,
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Light,
+                fontFamily = FontFamily.SansSerif,
+                letterSpacing = (-1).sp
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Grid
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                // Add New Project Button
+                item {
+                    NewProjectCard(onClick = onAddProjectClick)
+                }
+
+                // Project Items
+                items(uiState.projects) { project ->
+                    ProjectCard(project = project, onClick = { onProjectClick(project.id) })
+                }
+            }
         }
-        items(projects) { project ->
-            ProjectCard(project = project, onClick = { onProjectClick(project.id) })
+
+        if (uiState.isLoading) {
+            CircularProgressIndicator(
+                color = AccentYellow,
+                modifier = Modifier.align(Alignment.Center)
+            )
         }
     }
 }
 
 @Composable
 fun ProjectCard(project: ProjectEntity, onClick: () -> Unit) {
-    Box(
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF1C1C1E)),
+        shape = RoundedCornerShape(16.dp),
         modifier = Modifier
-            .aspectRatio(1f)
-            .clip(RoundedCornerShape(16.dp))
-            .background(GlassBackgroundBrush)
+            .fillMaxWidth()
+            .aspectRatio(1f) // Square cards
             .clickable(onClick = onClick)
-            .padding(16.dp)
     ) {
         Column(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = project.name,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextWhite
-            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
+                // Archetype Icon/Label
                 Text(
-                    text = project.archetype.name,
+                    text = project.archetype.name.take(3),
+                    color = TextGrey,
                     fontSize = 12.sp,
-                    color = TextGrey
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
                 )
+
+                // Level Badge
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(AccentYellow)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .background(AccentYellow, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "LVL ${project.currentLevel}",
+                        color = Color.Black,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
+
+            Text(
+                text = project.name.uppercase(),
+                color = TextWhite,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                lineHeight = 22.sp
+            )
         }
     }
 }
 
 @Composable
-fun AddNewProjectCard(onClick: () -> Unit) {
+fun NewProjectCard(onClick: () -> Unit) {
     Box(
         modifier = Modifier
+            .fillMaxWidth()
             .aspectRatio(1f)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.DarkGray.copy(alpha = 0.5f))
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            // Dashed Border manually drawn
+            .drawBehind {
+                drawRoundRect(
+                    color = Color.DarkGray,
+                    style = Stroke(
+                        width = 2.dp.toPx(),
+                        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(20f, 20f))
+                    ),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
+                )
+            },
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "NEW PROJECT",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            color = TextWhite
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = TextGrey,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "NEW PROJECT",
+                color = TextGrey,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+        }
     }
 }

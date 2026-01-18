@@ -8,6 +8,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import com.example.builderdiary.ui.navigation.FocusAppNavHost
+import dagger.hilt.android.AndroidEntryPoint
 
 // --- Colors ---
 val DarkBackground = Color(0xFF000000)
@@ -33,6 +34,7 @@ val GlassBackgroundBrush = Brush.verticalGradient(
     )
 )
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
