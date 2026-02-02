@@ -7,6 +7,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.navigation.compose.rememberNavController
 import com.example.builderdiary.ui.navigation.FocusAppNavHost
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -42,7 +43,8 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(
                 colorScheme = darkColorScheme(background = DarkBackground)
             ) {
-                FocusAppNavHost()
+                val navController = rememberNavController()
+                FocusAppNavHost(navController = navController)
             }
         }
     }

@@ -36,10 +36,15 @@ import kotlin.math.absoluteValue
 
 @Composable
 fun ProjectDetailScreen(
+    projectId: Long,
     onStartSession: (Long) -> Unit,
     onBack: () -> Unit,
     viewModel: ProjectDetailViewModel = hiltViewModel()
 ) {
+    LaunchedEffect(projectId) {
+        viewModel.loadProject(projectId)
+    }
+
     val uiState by viewModel.uiState.collectAsState()
 
     // --- SWIPE DOWN LOGIC (Nested Scroll) ---

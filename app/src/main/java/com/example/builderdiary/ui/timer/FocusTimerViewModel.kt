@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -40,10 +41,10 @@ class FocusTimerViewModel @Inject constructor(
         viewModelScope.launch {
             repository.createInitialProjectIfNoneExists()
             val projects = repository.getAllProjects().first()
-            _uiState.value = _uiState.value.copy(
+            _uiState.update { it.copy(
                 projectList = projects,
                 selectedProject = projects.firstOrNull()
-            )
+            ) }
         }
     }
 
@@ -55,9 +56,13 @@ class FocusTimerViewModel @Inject constructor(
         }
     }
 
+    fun stopTimer() {
+        finishSession()
+    }
+
     private fun startTimer() {
         timerJob?.cancel()
-        _uiState.value = _uiState.value.copy(isTimerRunning = true)
+        _uiState.update { it.copy(isTimerRunning = true) }
 
         timerJob = viewModelScope.launch {
             while (_uiState.value.timeLeft > 0) {
@@ -66,10 +71,10 @@ class FocusTimerViewModel @Inject constructor(
                 // Prevent division by zero
                 val progress = if (defaultSessionTime > 0) newTime.toFloat() / defaultSessionTime.toFloat() else 0f
 
-                _uiState.value = _uiState.value.copy(
+                _uiState.update { it.copy(
                     timeLeft = newTime,
                     progress = progress
-                )
+                ) }
             }
             finishSession()
         }
@@ -77,12 +82,12 @@ class FocusTimerViewModel @Inject constructor(
 
     private fun pauseTimer() {
         timerJob?.cancel()
-        _uiState.value = _uiState.value.copy(isTimerRunning = false)
+        _uiState.update { it.copy(isTimerRunning = false) }
     }
 
     private fun finishSession() {
         pauseTimer()
-        _uiState.value = _uiState.value.copy(timeLeft = defaultSessionTime, progress = 1f)
+        _uiState.update { it.copy(timeLeft = defaultSessionTime, progress = 1f) }
 
         viewModelScope.launch {
             _navigationEvent.send(
@@ -96,7 +101,24 @@ class FocusTimerViewModel @Inject constructor(
     }
 
     fun selectProject(project: ProjectEntity) {
-        _uiState.value = _uiState.value.copy(selectedProject = project)
+        _uiState.update { it.copy(selectedProject = project) }
+    }
+
+    // --- Overlay Management ---
+    fun openProjectDetail(id: Long) {
+        _uiState.update { it.copy(activeProjectId = id) }
+    }
+
+    fun closeProjectDetail() {
+        _uiState.update { it.copy(activeProjectId = null) }
+    }
+
+    fun openProjectCreation() {
+        _uiState.update { it.copy(isCreatingProject = true) }
+    }
+
+    fun closeProjectCreation() {
+        _uiState.update { it.copy(isCreatingProject = false) }
     }
 }
 
@@ -105,9 +127,11 @@ sealed class TimerNavigationEvent {
 }
 
 data class TimerUiState(
-    val timeLeft: Long = 25 * 60L,
+    val timeLeft: Long = 1 * 60L,
     val isTimerRunning: Boolean = false,
     val progress: Float = 1.0f,
     val selectedProject: ProjectEntity? = null,
-    val projectList: List<ProjectEntity> = emptyList()
+    val projectList: List<ProjectEntity> = emptyList(),
+    val activeProjectId: Long? = null,
+    val isCreatingProject: Boolean = false
 )

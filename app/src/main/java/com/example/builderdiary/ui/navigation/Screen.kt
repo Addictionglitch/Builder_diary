@@ -8,6 +8,8 @@ sealed class Screen(val route: String, val navArguments: List<NamedNavArgument> 
     data object FocusTimer : Screen("focus_timer")
     data object InitializeProject : Screen("initialize_project")
     data object Dashboard : Screen("dashboard")
+    data object Settings : Screen("settings")
+
 
     // FIXED: Added projectId to the route
     data object SessionReceipt : Screen(

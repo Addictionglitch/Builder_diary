@@ -3,6 +3,7 @@ package com.example.builderdiary.ui.dashboard
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -22,17 +23,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.builderdiary.AccentYellow
+import com.example.builderdiary.DarkBackground
 import com.example.builderdiary.TextGrey
 import com.example.builderdiary.TextWhite
 import com.example.builderdiary.data.local.entity.ProjectEntity
@@ -42,42 +41,33 @@ fun DashboardScreen(
     viewModel: DashboardViewModel = hiltViewModel(),
     onProjectClick: (Long) -> Unit,
     onAddProjectClick: () -> Unit,
-    onBack: () -> Unit // Swipe down callback
+    onBack: () -> Unit // Ensure this parameter exists
 ) {
     val uiState by viewModel.uiState.collectAsState()
-
-    // --- SWIPE DOWN LOGIC ---
+    
+    // GESTURE CONFIGURATION
     val density = LocalDensity.current
     val minSwipeDistance = with(density) { 100.dp.toPx() }
     var dragOffset by remember { mutableFloatStateOf(0f) }
 
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                // Accumulate drag when the user pulls down and list is at the top
-                if (source == NestedScrollSource.Drag && available.y > 0) {
-                    dragOffset += available.y
-                    return available
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                if (dragOffset > minSwipeDistance) {
-                    onBack()
-                }
-                dragOffset = 0f
-                return super.onPostFling(consumed, available)
-            }
-        }
-    }
-
-    // --- UI ---
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)) // Strict Black Background
-            .nestedScroll(nestedScrollConnection)
+            .background(DarkBackground) // Ensure background is set
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        // SWIPE DOWN: Trigger if dragged down (positive value) significantly
+                        if (dragOffset > minSwipeDistance) {
+                            onBack()
+                        }
+                        dragOffset = 0f
+                    },
+                    onDragCancel = { dragOffset = 0f }
+                ) { change, dragAmount ->
+                    dragOffset += dragAmount
+                }
+            }
     ) {
         Column(
             modifier = Modifier
